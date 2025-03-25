@@ -1,41 +1,31 @@
-import { Request,Response } from "express";
+import { Request, Response } from "express";
 import Restaurant from "../models/restaurant";
-import cloudinary from "cloudinary";  
+import cloudinary from "cloudinary";
 import mongoose from "mongoose";
+import Order from "../models/order";
 
-// Extend Request Type to include userId
-interface AuthRequest extends Request {
-  userId?: string;
-}
-
-const getMyRestaurant = async (req: AuthRequest, res: Response): Promise<void> => {
+const getMyRestaurant = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Check if userId exists
-    if (!req.userId) {
-      res.status(401).json({ message: "Unauthorized - No userId found" });
-      return;
-    }
-
-    const restaurant = await Restaurant.findOne({ user: new mongoose.Types.ObjectId(req.userId) });
-
+    console.log('in getMyRestaurant');
+    const restaurant = await Restaurant.findOne({ user: req.userId });
+    console.log(req.userId);
     if (!restaurant) {
-      res.status(404).json({ message: "Restaurant not found" });
+      res.status(404).json({ message: "restaurant not found" });
       return;
     }
-
-    res.status(200).json(restaurant);
+    res.json(restaurant);
   } catch (error) {
-    console.error("Error fetching restaurant:", error);
+    console.log("error", error);
     res.status(500).json({ message: "Error fetching restaurant" });
   }
 };
 
-const createMyRestaurant = async (req: Request, res: Response):Promise<void> => {
+const createMyRestaurant = async (req: Request, res: Response): Promise<void> => {
   try {
     const existingRestaurant = await Restaurant.findOne({ user: req.userId });
 
     if (existingRestaurant) {
-        res
+      res
         .status(409)
         .json({ message: "User restaurant already exists" });
         return;
@@ -55,7 +45,6 @@ const createMyRestaurant = async (req: Request, res: Response):Promise<void> => 
     res.status(500).json({ message: "Something went wrong" });
   }
 };
-
 
 const updateMyRestaurant = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -90,6 +79,52 @@ const updateMyRestaurant = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
+const getMyRestaurantOrders = async (req: Request, res: Response): Promise<void>  => {
+  try {
+    const restaurant = await Restaurant.findOne({ user: req.userId });
+    if (!restaurant) {
+      res.status(404).json({ message: "restaurant not found" });
+      return;
+    }
+
+    const orders = await Order.find({ restaurant: restaurant._id })
+      .populate("restaurant");
+
+    res.json(orders);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "something went wrong" });
+  }
+};
+
+const updateOrderStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      res.status(404).json({ message: "order not found" });
+      return;
+    }
+
+    const restaurant = await Restaurant.findById(order.restaurant);
+
+    if (restaurant?.user?._id.toString() !== req.userId) {
+      res.status(401).send();
+      return;
+    }
+
+    order.status = status;
+    await order.save();
+
+    res.status(200).json(order);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "unable to update order status" });
+  }
+};
+
 const uploadImage = async (file: Express.Multer.File) => {
   const image = file;
   const base64Image = Buffer.from(image.buffer).toString("base64");
@@ -100,7 +135,9 @@ const uploadImage = async (file: Express.Multer.File) => {
 };
 
 export default {
-    createMyRestaurant,
-    getMyRestaurant,
-    updateMyRestaurant
-}
+  updateOrderStatus,
+  getMyRestaurantOrders,
+  getMyRestaurant,
+  createMyRestaurant,
+  updateMyRestaurant,
+};

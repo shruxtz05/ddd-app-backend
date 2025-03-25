@@ -1,7 +1,7 @@
 import { auth } from "express-oauth2-jwt-bearer";
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { User } from "../models/user";
+import User  from "../models/user";
 import jwksClient from "jwks-rsa";
 
 // Extending Request Type to Include Auth0 ID and User ID
@@ -13,6 +13,8 @@ declare module "express-serve-static-core" {
 }
 
 export const jwtCheck = auth({
+
+
   audience: process.env.AUTH0_AUDIENCE,
   issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL,
   tokenSigningAlg: "RS256",
